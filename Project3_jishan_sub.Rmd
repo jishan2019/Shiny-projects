@@ -1,0 +1,362 @@
+---
+title: "Exploring Diamonds dataset"
+runtime: shiny
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    vertical_layout: fill
+    theme: simplex
+
+---
+
+```{r setup, include=FALSE}
+library(shiny)
+library(plotly) # devtools::install_github('ropensci/plotly')
+library(ggplot2) # devtools::install_github('hadley/ggplot2')
+library(dplyr)
+library(flexdashboard) # devtools::install_github('rstudio/flexdashboard')
+library(readr)
+library(ggthemes)
+library(DT) ##showing the dataset
+library(devtools)
+install_github("vqv/ggbiplot")
+library(ggbiplot)
+# Read in data
+data("diamonds")
+```
+
+Sidebar {.sidebar}
+======================================================================
+
+### Controls for Univariate and Bivariate
+```{r}
+selectInput("uni", label = h4("Select a categorical variable"), 
+                  choices = list("cut" = "cut", "clarity" = "clarity",
+                                 "color" = "color"))
+nms <- names(diamonds)
+selectInput('v1', 'Variable1 for t-test', choices = nms, selected = "price")
+selectInput('v2', 'Variable2 for t-test ', choices = nms, selected = "caret")
+```
+
+
+### Controls for Multivariate 
+
+```{r}
+nms <- names(diamonds)
+selectInput('x', 'X', choices = nms, selected = "carat")
+selectInput('y', 'Y', choices = nms, selected = "price")
+selectInput('color', 'Color', choices = nms, selected = "clarity")
+selectInput('facet_row', 'Facet Row', c(None = '.', nms))
+selectInput('facet_col', 'Facet Column', c(None = '.', nms))
+sliderInput('plotHeight', 'Height of plot (in pixels)', 
+                    min = 100, max = 2000, value = 1000)
+selectInput('com1', 'First Component', choices = list( "PC1" = "PC1", "PC2" = "PC2",
+                                 "PC3" = "PC3", "PC4" = "PC4","PC5" = "PC5",
+                                 "PC6" = "PC6","PC7" = "PC7"))
+selectInput('com2', 'Second Component',choices = list( "PC2" = "PC2", "PC1" = "PC1",
+                                 "PC3" = "PC3", "PC4" = "PC4","PC5" = "PC5",
+                                 "PC6" = "PC6","PC7" = "PC7"))
+checkboxInput('center', label='Center', value = TRUE)
+checkboxInput('scale', label='Scale.', value = TRUE)
+```
+
+
+### Controls for price prediction
+```{r}
+helpText("This application predicts the price of a diamond based on its characteristics.")
+h3(helpText("Select:"))
+numericInput("car", label = h4("Carats"), step = 0.01, value = 2)
+selectInput("cut", label = h4("Cut"), 
+                  choices = list( "Fair" = "*", "Good" = "^Good",
+                                 "Very Good" = "Very Good", "Premium" = "Premium",
+                                 "Ideal" = "Ideal"))
+selectInput("col", label = h4("Color"), 
+                  choices = list("D" = "*", "E" = "E",
+                                 "F" = "F", "G" ="G",
+                                 "H" = "H", "I" = "I",
+                                 "J" = "J"))
+selectInput("clar", label = h4("Clarity"), 
+                  choices = list("I1" = "*", "SI2" = "SI2",
+                                 "SI1" = "SI1", "VS2" = "VS2", "VS1" = "VS1",
+                                 "VVS2" = "VVS2", "VVS1" = "VVS1", "IF" = "IF" ))
+```
+
+
+click each tab to explore more about this project. Thank you very much~  
+
+Author: Jishan Luo
+
+Dataset
+======================================================================
+
+Row
+-----------------------------------------------------------------------
+
+### View the Diamonds dataset
+
+```{r}
+DT::renderDataTable({
+    DT::datatable(diamonds, options = list(lengthMenu = c(10, 30, 50), pageLength = 5))
+  })
+```
+
+Row 
+-----------------------------------------------------------------------
+
+### Know your data
+
+#### The number of rows and columns
+```{r}
+dim(diamonds)
+```
+#### Variable names
+```{r}
+names(diamonds)
+```
+
+#### String of the dataset
+```{r}
+str(diamonds)#data frame by observations and variables
+```
+
+### The summary of the dataset
+
+```{r}
+summary(diamonds)
+```
+
+
+Univariate and Bivariate
+============================================================================
+
+Row
+----------------------------------------------------------------------------
+
+### Bar plot
+
+```{r }
+output$barplot <- renderPlotly({ 
+  ggplot(diamonds, aes_string(x=input$uni, fill=input$uni)) + geom_bar( ) +
+  scale_fill_brewer(palette = "Set1")
+})
+
+plotlyOutput('barplot')
+```
+
+Row
+-----------------------------------------------------------------------------
+```{r}
+renderPrint({
+var1=as.matrix(diamonds[,input$v1])
+var2=as.matrix(diamonds[,input$v2])
+t1=t.test(var1,var2)
+t1
+})
+```
+
+
+Row
+-----------------------------------------------------------------------------
+### Frequency Distribution table for cut
+
+```{r}
+renderPrint({
+w1=table(diamonds$cut)
+t1=as.data.frame(w1)
+t1
+})
+```
+
+
+
+
+### Frequency Distribution table for color
+
+```{r}
+renderPrint({
+w1=table(diamonds$color)
+t1=as.data.frame(w1)
+t1
+})
+
+```
+
+### Frequency Distribution table for clarity
+
+```{r}
+renderPrint({
+w1=table(diamonds$clarity)
+t1=as.data.frame(w1)
+t1
+})
+```
+
+
+
+
+Multivariate 1
+============================================================================
+Row
+-----------------------------------------------------------------------------
+```{r}
+library(GGally)
+ggcorr(diamonds)
+```
+
+Row
+-----------------------------------------------------------------------------
+```{r}
+renderPlotly({
+
+    # build graph with ggplot syntax
+    p <- ggplot(diamonds, aes_string(x = input$x, y = input$y, color =diamonds$cut)) + 
+      geom_point()
+
+    # if at least one facet column/row is specified, add it
+    facets <- paste(input$facet_row, '~', input$facet_col)
+    if (facets != '. ~ .') p <- p + facet_grid(facets)
+
+    ggplotly(p) %>% 
+      layout(height = input$plotHeight, autosize=TRUE)
+
+  })
+```
+
+
+Multivariate 2
+============================================================================
+Row
+-----------------------------------------------------------------------------
+### PCA plot
+```{r}
+diamonds.pca <- prcomp(diamonds[,c(1,5:10)], center = TRUE,scale. = TRUE)
+renderPlotly({
+diamonds.pca <- prcomp(diamonds[,c(1,5:10)], center = TRUE,scale. = TRUE)
+ggbiplot(diamonds.pca,ellipse=TRUE, labels=rownames(diamonds), groups=diamonds$cut)
+})
+```
+
+
+### PCA summary
+```{r}
+summary(diamonds.pca)
+```
+
+
+Row
+-----------------------------------------------------------------------------
+### PCA plot--Scatter plot with two components
+```{r}
+df_out <- as.data.frame(diamonds.pca$x)
+
+renderPlotly({
+PC1=df_out$PC1
+PC2=df_out$PC2
+PC3=df_out$PC3
+PC4=df_out$PC4
+PC5=df_out$PC5
+PC6=df_out$PC6
+PC7=df_out$PC7
+p<-ggplot(df_out,aes(x=input$com1,y=input$com2,color=diamonds$cut))
+p<-p+geom_point()
+p
+})
+```
+
+```{r eval=FALSE}
+p<-ggplot(df_out,aes(x=PC1,y=PC2,color=diamonds$cut))
+p<-p+geom_point()
+p
+```
+
+### PCA Variance plots
+```{r}
+plot(diamonds.pca, type = "l")
+```
+
+
+Diamond price predictor
+============================================================================
+
+Row
+-----------------------------------------------------------------------------
+### Relationship plot among variables using ggplot
+```{r}
+output$distPlot <- renderPlotly({
+    # select diamonds depending of user input
+    diam <- filter(diamonds, grepl(input$cut, cut), grepl(input$col, color), grepl(input$clar, clarity))
+    # build linear regression model
+    fit <- lm( price~carat, diam)
+    # predicts the price 
+    pred <- predict(fit, newdata = data.frame(carat = input$car,
+                                              cut = input$cut,
+                                              color = input$col,
+                                              clarity = input$clar))
+    # Drow the plot using ggplot2
+    plot <- ggplot(data=diam, aes(x=carat, y = price))+
+      geom_point(aes(color = cut), alpha = 0.3)+
+      geom_smooth(method = "lm")+
+      geom_vline(xintercept = input$car, color = "red")+
+      geom_hline(yintercept = pred, color = "green")+ 
+      ggtitle("ggplot for diamonds")
+    plot
+  })
+  
+  
+  
+ plotlyOutput('distPlot') 
+ 
+```
+
+Row
+----------------------------------------------------------------------------
+
+```{r}
+#The plot for relationship among the variables of diamonds
+output$result <- renderText({
+    # renders the text for the prediction below the graph
+    diam <- filter(diamonds, grepl(input$cut, cut), grepl(input$col, color), grepl(input$clar, clarity))
+    fit <- lm( price~carat, diam)
+    pred <- predict(fit, newdata = data.frame(carat = input$car,
+                                              cut = input$cut,
+                                              color = input$col,
+                                              clarity = input$clar))
+    res <- paste("$",round(pred, digits = 2))
+    print(res)
+  })
+
+h4("Predicted value of this diamond is:")
+h3(textOutput("result"))
+```
+
+
+
+About
+============================================================================
+
+For this project I used the Diamonds dataset from package `ggplot2` in R studio. After loading the dataset, I decided to answer the the following question: What is the basic summmary of this dataset? How can I utilize the statistics knowledge to analyze this dataset? What is the predicted price of a diamond based on the attributes of cut, color, clarity and carat? What is the accuracy of the prediction? Additionally, I decided to to answer additional questions in order to learn some additional methods / processes and code that may be of use in the future. 
+
+First, let's have a look at this dataset
+
+```{r,echo=TRUE}
+library(plotly)
+library(ggplot2)
+library(readr)
+library(tidyr)
+library(dplyr)
+library(GGally)
+library(rpart.plot)
+require(memisc)
+data("diamonds") #read diamonds dataset
+head(diamonds)
+str(diamonds)#data frame by observations and variables
+dim(diamonds)
+names(diamonds)
+summary(diamonds)
+sum(is.na(diamonds)) # check the values to see if I have any NAs in my data and it doesn't seem to indicate that I do. 
+```
+
+Second, I used univarite, bivariate, and multivariate methods to analyze the dataset.Also I used plots to demonstrate the result I want to present.
+
+
+

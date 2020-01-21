@@ -1,0 +1,193 @@
+---
+title: 'MATH 4793/5793 Project 1'
+author: "Jishan Luo"
+date: "`r Sys.Date()`"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    social: menu
+runtime: shiny
+---
+
+```{r global, include=FALSE}
+# load data in 'global' chunk so it can be shared by all users of the dashboard
+library(flexdashboard)
+library(ggplot2)
+library(plotly)
+library(plyr)
+library(shiny)
+library(rgl)
+library(car)
+library(gridExtra)
+data(iris)
+```
+
+Inputs 1 {.sidebar}
+-----------------------------------------------------------------------
+### Global control for all plots
+```{r}
+numericInput("obs", "Seed", 24)
+sliderInput('sampleSize', 'Sample Size', min=1, max=nrow(iris),
+            value=min(50, nrow(iris)), step=5, round=0,50)
+```
+
+
+### Control for plot 1 
+```{r}
+selectInput('x', 'Variable 1', names(iris), names(iris)[[1]])
+selectInput('y', 'Variable 2', names(iris), names(iris)[[2]])
+selectInput('z', 'Variable 3', names(iris), names(iris)[[3]])
+checkboxInput('jitter', 'Jitter', value = TRUE)
+checkboxInput('smooth', 'Smooth', value = TRUE)
+selectInput('color', 'Color', c('None', names(iris)))
+selectInput('facet_row', 'Facet Row',
+            c(None='.', names(iris[sapply(iris, is.factor)])),names(iris)[[5]])
+selectInput('facet_col', 'Facet Column',
+            c(None='.', names(iris[sapply(iris, is.factor)])))
+```
+
+### Control for plot 2
+```{r}
+selectInput('xplot2', 'Variable 1 for plot2', names(iris), names(iris)[[1]])
+selectInput('yplot2', 'Variable 2 for plot2', names(iris), names(iris)[[2]])
+```
+
+### Control for plot 3
+```{r}
+selectInput('xplot3', 'Variable for plot 3', names(iris), names(iris)[[1]])
+```
+
+
+Outputs 1 {.tabset} 
+-----------------------------------------------------------------------
+
+
+
+### Plot 1 
+Here is the plot 
+```{r}
+dataset <- reactive({
+ iris[sample(nrow(iris), input$sampleSize),]
+})
+
+renderPlotly({
+  set.seed(input$obs)
+  g1 <- ggplot(dataset(), aes_string(x=input$x, y=input$y)) + geom_point()
+      
+      if (input$color != 'None')
+        g1 <- g1 + aes_string(color=input$color)
+      facets <- paste(input$facet_row, '~', input$facet_col)
+      
+      if (facets != '. ~. ')
+        g1 <- g1 + facet_grid(facets)
+      
+      if (input$jitter)
+        g1 <- g1 + geom_jitter()
+      if (input$smooth)
+        g1 <- g1 + geom_smooth(method = 'loess',color="darkred", fill="blue")
+      
+      ggplotly(g1)
+      
+      g2<- ggplot(data=dataset(),aes_string(x=input$x, y=input$y,color=dataset()[,5])) +
+        geom_density2d()+ theme_minimal()+ggtitle("Relationship between two variables")
+      
+      ggplotly(g2)
+      
+      q <- subplot(g1, g2)
+      
+})
+
+```
+
+
+
+### Plot 2
+```{r}
+dataset <- reactive({
+ iris[sample(nrow(iris), input$sampleSize),]
+  
+})
+
+renderPlot({
+  set.seed(input$obs)
+# scatterplot of x and y
+  
+  scatter <- ggplot(dataset(),aes_string(x=input$xplot2, y=input$yplot2)) + 
+            geom_point(aes(color=dataset()[,5])) + 
+            scale_color_manual(values = c("orange", "purple","red")) + 
+            theme(legend.position=c(1,1),legend.justification=c(1,1)) 
+  
+
+# marginal density of x - plot on top
+plot_top <- ggplot(dataset(),aes_string(x=input$xplot2,fill=dataset()[,5]) )+ 
+  geom_density(alpha=.5) + 
+  scale_fill_manual(values = c("orange", "purple","red")) + 
+  theme(legend.position = "none")
+
+
+# marginal density of y - plot on the right
+plot_right <- ggplot(dataset(),aes_string(x=input$yplot2,fill=dataset()[,5])) + 
+  geom_density(alpha=.5) + coord_flip() + 
+  scale_fill_manual(values = c("orange", "purple","red")) + 
+  theme(legend.position = "none")  
+
+# Empty plot
+empty <- ggplot()+geom_point(aes(1,1), color="white") +
+theme(                              
+plot.background = element_blank(), 
+panel.grid.major = element_blank(), 
+panel.grid.minor = element_blank(), 
+panel.border = element_blank(), 
+panel.background = element_blank(),
+axis.title.x = element_blank(),
+axis.title.y = element_blank(),
+axis.text.x = element_blank(),
+axis.text.y = element_blank(),
+axis.ticks = element_blank()
+)
+
+
+grid.arrange(plot_top, empty, scatter, plot_right, ncol=2, nrow=2, widths=c(4, 1), heights=c(1, 4))
+})
+```
+
+
+
+
+### Plot 3
+```{r}
+dataset <- reactive({
+ iris[sample(nrow(iris), input$sampleSize),]
+  
+})
+
+renderPlotly({
+  
+  
+  g3 <- ggplot(dataset(), aes_string(x=input$xplot3,fill=dataset()[,5]))+
+        geom_density(stat="density", alpha=I(0.8)) +
+        ggtitle("Histogram & Density Curve")
+      ggplotly(g3)
+      
+  g4 <- ggplot(dataset(), aes_string(x=input$xplot3,fill=dataset()[,5]))+
+        geom_histogram(binwidth=0.2, color="black", aes(fill=Species)) + 
+        theme(legend.position="right" )
+      ggplotly(g4) 
+      
+      p <- subplot(g3, g4)
+
+
+})
+
+
+```
+
+### Plot 4
+g4 <- ggplot(dataset(), aes_string(x=input$xplot3,fill=dataset()[,5]))+
+        geom_histogram(binwidth=0.2, color="black", aes(fill=Species)) + 
+        theme(legend.position="right" )
+      ggplotly(g4) 
+      
+      p <- subplot(g3, g4)
+      
+$$a+2=8$$
